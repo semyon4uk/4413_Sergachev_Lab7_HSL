@@ -1,17 +1,3 @@
-"""
-Практическая работа №7. Вариант 15.
-RGB <-> HSL преобразование с интерактивным GUI и историей Undo/Redo.
-
-Формулы перевода взяты из методички (слайды 23-24 PDF):
-  RGB -> HSL: L = (MAX+MIN)/2,
-              S = (MAX-MIN)/(MAX+MIN)        при L <= 0.5
-                = (MAX-MIN)/(2-MAX-MIN)      при L >  0.5
-              H по веткам в зависимости от того, какой канал MAX.
-  HSL -> RGB: через Q, P и пороги 1/6, 1/2, 2/3 (см. слайд 24).
-
-Готовые функции colorsys / cv2.cvtColor НЕ используются - всё вручную на NumPy.
-"""
-
 from __future__ import annotations
 
 import os
@@ -23,10 +9,7 @@ import numpy as np
 from PIL import Image, ImageTk
 
 
-# ============================================================
 # 1. RGB <-> HSL (ручная векторная реализация)
-# ============================================================
-
 def rgb_to_hsl(rgb: np.ndarray) -> np.ndarray:
     """rgb: float[H,W,3] в [0,1]  ->  hsl: float[H,W,3], H в [0,360), S,L в [0,1]."""
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
@@ -38,7 +21,6 @@ def rgb_to_hsl(rgb: np.ndarray) -> np.ndarray:
 
     S = np.zeros_like(L)
     nz = delta > 1e-12
-    # S по двум веткам (см. слайд 23)
     low = nz & (L <= 0.5)
     high = nz & (L > 0.5)
     S[low] = delta[low] / (mx[low] + mn[low])
@@ -103,12 +85,8 @@ def apply_hsl_shift(hsl: np.ndarray, dh: float, ds: float, dl: float) -> np.ndar
     return np.stack([H, S, L], axis=-1)
 
 
-# ============================================================
 # 2. GUI (tkinter)
-# ============================================================
-
-PREVIEW_MAX = 480  # макс. сторона превью, чтобы не тормозило
-
+PREVIEW_MAX = 480
 
 class HSLEditor(tk.Tk):
     def __init__(self) -> None:
@@ -126,7 +104,7 @@ class HSLEditor(tk.Tk):
         # История Undo/Redo
         self.history: deque[tuple[float, float, float]] = deque(maxlen=200)
         self.future: deque[tuple[float, float, float]] = deque(maxlen=200)
-        self._committing = False  # флаг, чтобы не плодить записи во время undo/redo
+        self._committing = False
         self._after_id: str | None = None  # отложенная фиксация в историю
 
         self._build_ui()
@@ -210,7 +188,7 @@ class HSLEditor(tk.Tk):
         )
         scale.pack(side=tk.TOP, fill=tk.X)
 
-        # Фиксируем в историю по отпусканию мыши - так одно перетаскивание = одна запись
+        # Фиксируем в историю по отпусканию мыши
         scale.bind("<ButtonRelease-1>", lambda _e: self._commit_history())
 
     # ---------- Файлы ----------
@@ -230,7 +208,6 @@ class HSLEditor(tk.Tk):
         self.src_rgb = np.asarray(img, dtype=np.float32) / 255.0
         self.src_hsl = rgb_to_hsl(self.src_rgb)
 
-        # уменьшенная копия для отзывчивого превью
         prev = img.copy()
         prev.thumbnail((PREVIEW_MAX, PREVIEW_MAX))
         self.preview_rgb = np.asarray(prev, dtype=np.float32) / 255.0
@@ -281,7 +258,6 @@ class HSLEditor(tk.Tk):
     def _on_slider_change(self) -> None:
         if self._committing:
             return
-        # отрисовываем сразу (быстро благодаря preview)
         self._redraw()
 
     def _commit_history(self) -> None:
@@ -317,7 +293,6 @@ class HSLEditor(tk.Tk):
     def _update_history_buttons(self) -> None:
         self.btn_undo.state(["!disabled"] if len(self.history) > 1 else ["disabled"])
         self.btn_redo.state(["!disabled"] if self.future else ["disabled"])
-        # позиция в истории (1-based)
         depth = len(self.history)
         total = depth + len(self.future)
         self.lbl_hist.config(text=f"История: {depth} / {total}")
